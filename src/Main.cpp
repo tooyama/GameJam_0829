@@ -1,22 +1,22 @@
-﻿
-# include <Siv3D.hpp> // OpenSiv3D v0.2.8
+# include <Siv3D.hpp>
 
 void Main()
 {
-	Graphics::SetBackground(ColorF(0.8, 0.9, 1.0));
-
-	const Font font(50);
-
-	const Texture textureCat(Emoji(U"🐈"), TextureDesc::Mipped);
-
-	while (System::Update())
-	{
-		font(U"Hello, Siv3D!🐣").drawAt(Window::Center(), Palette::Black);
-
-		font(Cursor::Pos()).draw(20, 400, ColorF(0.6));
-
-		textureCat.resized(80).draw(540, 380);
-
-		Circle(Cursor::Pos(), 60).draw(ColorF(1, 0, 0, 0.5));
-	}
+    while (System::Update())
+    {
+        if(Gamepad(0))
+        {
+            auto gamePad = Gamepad(0);
+            
+            for (size_t i = 0; i < gamePad.buttons.size(); ++i)
+            {
+                if (gamePad.buttons[i].down())
+                {
+                    Print(i);
+                }
+            }
+            
+            Print(gamePad.povD8());
+        }
+    }
 }
