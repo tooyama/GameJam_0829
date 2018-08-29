@@ -392,11 +392,12 @@ void Main()
     bool isStart = false;
     
     const Font UIFont(40,Typeface::Bold);
-    const Font font(80);
-    const Font powerUpFont(60);
+    const Font font(80,Typeface::Bold);
+    const Font bigFont(250,Typeface::Bold);
+    const Font powerUpFont(60,Typeface::Bold);
     Array<HighlightingShape<Rect>> items;
     Array<String> itemNames = {U"撃",U"打",U"伐",U"射",U"征"};
-    Array<int32> itemEnergies = {200,300,500,500,1000};
+    Array<int32> itemEnergies = {200,200,500,500,1000};
     Array<int32> itemNumber = {0,0,0,0,0};
     const int32 itemCount = 5;
     const Vec2 itemRange(100,50);
@@ -419,6 +420,8 @@ void Main()
     Audio cancelSE(U"example/Laser_Shoot58.wav");
     Audio deadSE(U"example/Explosion69.wav");
     Audio damageSE(U"example/Explosion72.wav");
+    Audio deathSE(U"example/Explosion78.wav");
+    Audio powerUpSE(U"example/Explosion31.wav");
     
     for (auto i : step(itemCount))
     {
@@ -441,7 +444,7 @@ void Main()
         
         if(isStart && energy < maxEnergy)
         {
-            energy += (1+itemNumber.sum()/itemCount);
+            energy += (1+itemNumber.sum()/(itemCount*2));
         }
         
         if(!isGameOver && nextCoolTime < respawnTime.s())
@@ -500,9 +503,13 @@ void Main()
             {
                 if(itemNumber[i]<10)
                 {
-                    if(itemEnergies[i] < energy && 1000 < coolTime.ms())
+                    if(itemEnergies[i] < energy && 500 < coolTime.ms())
                     {
                         ++itemNumber[i];
+                        if(itemNumber[i]==10 || itemNumber[i]==25)
+                        {
+                            powerUpSE.playOneShot();
+                        }
                         selectSE.playOneShot();
                         coolTime.restart();
                         energy -= itemEnergies[i];
@@ -630,6 +637,7 @@ void Main()
             if(player.alive() && Window::Size().x+100 < player.getPos().x)
             {
                 player.dead();
+                powerUpSE.playOneShot();
                 score += 1000;
             }
             
@@ -649,9 +657,38 @@ void Main()
             if(enemy.alive() && enemy.getPos().x < -100)
             {
                 ++deadCount;
+                deadSE.playOneShot();
                 if(maxDeadCount <= deadCount)
                 {
                     isGameOver = true;
+                }
+                enemy.dead();
+            }
+            
+            for(auto& eBullet : enemy.getBullets())
+            {
+                if(eBullet.alive() && eBullet.getPos().x < -50)
+                {
+                    eBullet.dead();
+                }
+            }
+        }
+
+        if(Rect(0,200,100,Window::Size().y-450).leftClicked() &&  5000 < score)
+        {
+            score -= 5000;
+            
+            deadSE.playOneShot();
+            for(const auto& i : step(10))
+            {
+                 effect.add<Default>(Vec2(200+i*150,Window::Size().y/2-200), 20);
+            }
+            
+            for(auto& enemy : enemies)
+            {
+                for(auto& eBullet : enemy.getBullets())
+                {
+                    eBullet.dead();
                 }
                 enemy.dead();
             }
@@ -696,6 +733,7 @@ void Main()
                 UIFont(itemEnergies[i]*3).draw(Arg::topRight(itemRange.x+150+i*itemSize.x*1.5, Window::Size().y-itemSize.y-itemRange.y),Palette::Gray);
             }
         }
+        bigFont(U"鬱").drawAt(0,Window::Size().y/2,Palette::Gray);
         
         UIFont(U"Score : ").draw(50,0,Palette::Gray);
         UIFont(score).draw(Arg::topRight(Window::Size().x/2-50, 0),Palette::Gray);
