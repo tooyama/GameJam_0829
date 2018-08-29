@@ -1,12 +1,19 @@
 # include <Siv3D.hpp>
 
+enum class BulletType
+{
+    Default,
+    Throw,
+    Fall,
+};
 
 class Bullet
 {
 public:
-    Bullet(bool isEnemy = false, Vec2 pos = Vec2(0,0))
+    Bullet(bool isEnemy = false, Vec2 pos = Vec2(0,0), BulletType bulletType=BulletType::Default)
     :m_isEnemy(isEnemy)
     ,m_pos(pos)
+    ,m_bulletType(bulletType)
     ,m_isAlive(true)
     {}
     
@@ -27,7 +34,25 @@ public:
     
     void update()
     {
-        if(m_isAlive) m_pos.moveBy(m_isEnemy ? -10.0 : 10.0, 0);
+        if(m_isAlive)
+        {
+            switch (m_bulletType)
+            {
+                case BulletType::Default:
+                    m_pos.moveBy(m_isEnemy ? -10.0 : 10.0, 0);
+                    break;
+                case BulletType::Throw:
+                    m_pos.moveBy(m_isEnemy ? -10.0 : 10.0, 0);
+                    break;
+                case BulletType::Fall:
+                    m_pos.moveBy(0, 10.0);
+                    break;
+                default:
+                    m_pos.moveBy(m_isEnemy ? -10.0 : 10.0, 0);
+                    break;
+            }
+            
+        }
     }
     
     const void draw()
@@ -36,6 +61,7 @@ public:
     }
 private:
     const bool m_isEnemy;
+    const BulletType m_bulletType;
     Vec2 m_pos;
     bool m_isAlive;
 };
@@ -121,7 +147,15 @@ public:
                 if(2000 < m_coolTime.ms())
                 {
                     m_coolTime.restart();
-                    m_bullets.push_back(Bullet(m_isEnemy,m_pos));
+                    m_bullets.push_back(Bullet(m_isEnemy,m_pos,BulletType::Default));
+                }
+            }
+            else if(m_name==U"征")
+            {
+                if(500 < m_coolTime.ms())
+                {
+                    m_coolTime.restart();
+                    m_bullets.push_back(Bullet(m_isEnemy,m_pos,BulletType::Fall));
                 }
             }
         
@@ -404,7 +438,7 @@ void Main()
                             effect.add<Default>(Vec2((eBullet.getPos().x+player.getPos().x)/2,player.getPos().y),6);
                             eBullet.dead();
                             
-                            if(player.nockBack(1))
+                            if(player.nockBack(2))
                             {
                                 effect.add<Fall>(player.getPos(), 10, Palette::Blue);
                             }
