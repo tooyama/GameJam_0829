@@ -2,17 +2,20 @@
 
 enum class BulletType
 {
-    Default,
+    Normal,
     Throw,
-    Fall,
+    Fall
 };
 
 class Bullet
 {
 public:
-    Bullet(bool isEnemy = false, Vec2 pos = Vec2(0,0), BulletType bulletType=BulletType::Default)
+    Bullet(bool isEnemy = false, Vec2 pos = Vec2(0,0), double speed=10.0, BulletType bulletType=BulletType::Normal)
     :m_isEnemy(isEnemy)
     ,m_pos(pos)
+    ,m_speed(speed)
+    ,m_prevPosY(pos.y)
+    ,m_fouce(-12.0)
     ,m_bulletType(bulletType)
     ,m_isAlive(true)
     {}
@@ -36,19 +39,23 @@ public:
     {
         if(m_isAlive)
         {
+            double yTemp = m_pos.y;
+            
             switch (m_bulletType)
             {
-                case BulletType::Default:
-                    m_pos.moveBy(m_isEnemy ? -10.0 : 10.0, 0);
+                case BulletType::Normal:
+                    m_pos.moveBy(m_isEnemy ? -m_speed : m_speed, 0);
                     break;
                 case BulletType::Throw:
-                    m_pos.moveBy(m_isEnemy ? -10.0 : 10.0, 0);
+                    m_pos.moveBy(m_isEnemy ? -m_speed : m_speed, (m_pos.y - m_prevPosY) + m_fouce);
+                    m_prevPosY = yTemp;
+                    m_fouce = 0.2;
                     break;
                 case BulletType::Fall:
-                    m_pos.moveBy(0, 10.0);
+                    m_pos.moveBy(0, m_speed);
                     break;
                 default:
-                    m_pos.moveBy(m_isEnemy ? -10.0 : 10.0, 0);
+                    m_pos.moveBy(m_isEnemy ? -m_speed : m_speed, 0);
                     break;
             }
             
@@ -64,6 +71,9 @@ private:
     const BulletType m_bulletType;
     Vec2 m_pos;
     bool m_isAlive;
+    double m_speed;
+    double m_fouce;
+    double m_prevPosY;
 };
 
 class Player
@@ -83,23 +93,23 @@ public:
         }
         else if(m_name==U"撃")
         {
-            m_speed = isEnemy ? -1.0 : 1.0;
+            m_speed = isEnemy ? -1.5 : 1.5;
             m_hp = 5;
         }
         else if(m_name==U"射")
         {
-            m_speed = isEnemy ? -0.5 : 0.5;
-            m_hp = 20;
+            m_speed = isEnemy ? -1.0 : 1.0;
+            m_hp = 10;
         }
         else if(m_name==U"伐")
         {
             m_speed = isEnemy ? -5.0 : 5.0;
-            m_hp = 30;
+            m_hp = 25;
         }
         else if(m_name==U"征")
         {
-            m_speed = isEnemy ? -2.0 : 2.0;
-            m_hp = 10;
+            m_speed = isEnemy ? -3.0 : 3.0;
+            m_hp = 5;
             m_pos -= Vec2(0,200);
         }
         
@@ -147,7 +157,17 @@ public:
                 if(2000 < m_coolTime.ms())
                 {
                     m_coolTime.restart();
-                    m_bullets.push_back(Bullet(m_isEnemy,m_pos,BulletType::Default));
+                    m_bullets.push_back(Bullet(m_isEnemy,m_pos,10.0,BulletType::Normal));
+                }
+            }
+            else if(m_name==U"射")
+            {
+                if(4000 < m_coolTime.ms())
+                {
+                    m_coolTime.restart();
+                    m_bullets.push_back(Bullet(m_isEnemy,m_pos,3.0,BulletType::Throw));
+                    m_bullets.push_back(Bullet(m_isEnemy,m_pos,6.0,BulletType::Throw));
+                    m_bullets.push_back(Bullet(m_isEnemy,m_pos,9.0,BulletType::Throw));
                 }
             }
             else if(m_name==U"征")
@@ -155,7 +175,7 @@ public:
                 if(500 < m_coolTime.ms())
                 {
                     m_coolTime.restart();
-                    m_bullets.push_back(Bullet(m_isEnemy,m_pos,BulletType::Fall));
+                    m_bullets.push_back(Bullet(m_isEnemy,m_pos,10.0,BulletType::Fall));
                 }
             }
         
@@ -255,7 +275,6 @@ struct Fall : IEffect
             const Vec2 pos = particle.pos + particle.v0 * t + 0.5* t*t * Vec2(0, 0);
             
             RectF(pos,30,30).rotated(t*360_deg).draw(ColorF(m_color,1.0 - t));
-            //Circle(pos,20).draw(ColorF(m_color,1.0 - t));
         }
         
         return t < 1.0;
@@ -314,20 +333,20 @@ void Main()
     const Font UIFont(40,Typeface::Bold);
     const Font font(80);
     Array<HighlightingShape<Rect>> items;
-    Array<String> itemNames = {U"打",U"撃",U"射",U"伐",U"征"};
-    Array<int32> itemEnergies = {100,500,1000,2000,2500};
+    Array<String> itemNames = {U"打",U"撃",U"伐",U"射",U"征"};
+    Array<int32> itemEnergies = {100,200,300,500,1000};
     const int32 itemCount = 5;
     const Vec2 itemRange(100,50);
     const Vec2 itemSize((Window::Size().x)/itemCount-itemRange.x, Window::Size().y/5);
     
     Stopwatch coolTime;
-    int32 nextCoolTime = 5;
+    int32 nextCoolTime = 0;
     Array<Player> players;
     Stopwatch respawnTime;
     Array<Player> enemies;
     
     int32 score = 0;
-    int32 energy = 2500;
+    int32 energy = 500;
     const int32 maxEnergy = 100000;
     int32 deadCount = 0;
     const int32 maxDeadCount = 5;
@@ -350,7 +369,7 @@ void Main()
         if(!isGameOver && nextCoolTime < respawnTime.s())
         {
             respawnTime.restart();
-            nextCoolTime = Random(2,6);
+            nextCoolTime = Random(1,4);
             int32 n = Random(0,100);
             if(n < 40)
             {
@@ -364,7 +383,7 @@ void Main()
             {
                 enemies.push_back(Player(itemNames[2],true,Vec2(Window::Size().x+50,Window::Size().y/2+100)));
             }
-            else if(n < 95)
+            else if(n < 90)
             {
                 enemies.push_back(Player(itemNames[3],true,Vec2(Window::Size().x+50,Window::Size().y/2+100)));
             }
@@ -420,7 +439,7 @@ void Main()
                             effect.add<Default>(Vec2((pBullet.getPos().x+enemy.getPos().x)/2,enemy.getPos().y),6);
                             pBullet.dead();
                             
-                            if(enemy.nockBack(1))
+                            if(enemy.nockBack(2))
                             {
                                 effect.add<Fall>(enemy.getPos(), 10, Palette::Blue);
                                 score += 100;
@@ -455,6 +474,7 @@ void Main()
             if(player.alive() && Window::Size().x+100 < player.getPos().x)
             {
                 player.dead();
+                score += 1000;
             }
             
             for(auto& pBullet : player.getBullets())
@@ -485,18 +505,6 @@ void Main()
         players.erase(rmvIter, players.end());
         */
         //draw
-        for (const auto& item : items)
-        {
-            item.drawHighlight(Palette::Gray);
-        }
-        
-        for (const auto& i : step(itemCount))
-        {
-            font(itemNames[i]).draw(itemRange.x+30+i*itemSize.x*1.5, Window::Size().y-itemSize.y,Palette::Gray);
-            
-            UIFont(itemEnergies[i]).draw(Arg::topRight(itemRange.x+150+i*itemSize.x*1.5, Window::Size().y-itemSize.y-itemRange.y),Palette::Gray);
-        }
-        
         for(auto& player : players)
         {
             player.draw();
@@ -508,6 +516,18 @@ void Main()
         }
         
         effect.update();
+        
+        for (const auto& item : items)
+        {
+            item.drawHighlight(Palette::Gray);
+        }
+        
+        for (const auto& i : step(itemCount))
+        {
+            font(itemNames[i]).draw(itemRange.x+30+i*itemSize.x*1.5, Window::Size().y-itemSize.y,Palette::Gray);
+            
+            UIFont(itemEnergies[i]).draw(Arg::topRight(itemRange.x+150+i*itemSize.x*1.5, Window::Size().y-itemSize.y-itemRange.y),Palette::Gray);
+        }
         
         UIFont(U"Score : ").draw(50,0,Palette::Gray);
         UIFont(score).draw(Arg::topRight(Window::Size().x/2-50, 0),Palette::Gray);
